@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type {Coin, CoinConfig} from "../api";
-import {computed, onMounted, ref, watch} from "vue";
+import {computed, onMounted, onUnmounted, ref, watch} from "vue";
 import { Chart, registerables} from 'chart.js';
 Chart.register(...registerables);
 
@@ -32,7 +32,7 @@ const lastChangeClass = computed(() => {
 })
 
 const priceExtremums = computed(() => {
-  const sortedPrices = props.coin.priceHistory.sort((a, b) => parseFloat(b) - parseFloat(a))
+  const sortedPrices = [...props.coin.priceHistory].sort((a, b) => parseFloat(b) - parseFloat(a))
   return {
     biggest: Number(sortedPrices[0]).toFixed(2),
     lowest: Number(sortedPrices[sortedPrices.length - 1]).toFixed(2)
@@ -40,33 +40,39 @@ const priceExtremums = computed(() => {
 })
 
 const getChartData = (data: string[], max = 5) => {
-  const last3 = data.slice(-max)
-  return last3.map(price => parseFloat(price))
+  const last = data.slice(-max)
+  return last.map(price => parseFloat(price))
 }
 
 const getChartColor = (data: number[]) => {
-  if (data[0] > data[data.length - 1]) {
-    return "#f87171"
+  if (data.length < 2) {
+    return "#4ade80"
   }
-  return "#4ade80"
+  return data[0] > data[data.length - 1] ? "#f87171" : "#4ade80"
 }
 
 
-const chart = ref<Chart>()
+const canvasEl = ref<HTMLCanvasElement | null>(null)
+const chart = ref<Chart | null>(null)
 const chartData = ref(getChartData(props.coin.priceHistory))
 const chartDataColor = ref(getChartColor(chartData.value))
-watch(props.coin.priceHistory, (newPrices) => {
-  chartData.value = getChartData(newPrices)
-  chartDataColor.value = getChartColor(chartData.value)
-  if (chart.value) {
-    chart.value.update();
-  }
-})
+
+watch(
+    () => props.coin.priceHistory,
+    (newPrices) => {
+      chartData.value = getChartData(newPrices)
+      chartDataColor.value = getChartColor(chartData.value)
+      if (chart.value) {
+        chart.value.data.datasets[0].data = chartData.value
+        chart.value.data.datasets[0].borderColor = chartDataColor.value
+        chart.value.update()
+      }
+    }
+)
 
 onMounted(() => {
-  const ctx: HTMLCanvasElement = document.getElementById(props.coin.id) as HTMLCanvasElement;
-  if (ctx) {
-    chart.value = new Chart(ctx, {
+  if (canvasEl.value) {
+    chart.value = new Chart(canvasEl.value, {
       type: 'line',
       data: {
         labels: props.chartLabels,
@@ -117,6 +123,10 @@ onMounted(() => {
     });
   }
 })
+onUnmounted(() => {
+  chart.value?.destroy()
+  chart.value = null
+})
 </script>
 
 <template>
@@ -134,7 +144,7 @@ onMounted(() => {
     <div class="lowest-price">{{priceExtremums.lowest}}</div>
     <div class="volume">{{Number(coin.volume.secondary).toFixed(2)}} <span>({{coin.pair.secondary}})</span></div>
     <div class="chart">
-      <canvas :id="coin.id" width="50px" height="50px"></canvas>
+      <canvas ref="canvasEl" :id="coin.id" width="50px" height="50px"></canvas>
     </div>
   </div>
 </template>
