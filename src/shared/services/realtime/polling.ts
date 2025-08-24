@@ -17,6 +17,14 @@ export function poll<T>(
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
     let currentRequestId = 0;
 
+    const options: Required<PollingOptions<T>> = {
+        intervalMs: Math.max(0, pollingOptions.intervalMs ?? 5000),
+        maxRetries: pollingOptions.maxRetries ?? 10,
+        validate: pollingOptions.validate ?? (() => true),
+        onError: pollingOptions.onError ?? (() => {})
+    };
+
+
     const cleanup = () => {
         if (timeoutId) {
             clearTimeout(timeoutId);
@@ -31,26 +39,45 @@ export function poll<T>(
         
         try {
             const result = await apiFn();
-            
+
             if (requestId !== currentRequestId || needToStopPolling) {
                 return;
             }
-            
-            cb(result);
-            attempts = 0;
+
+            if (!options.validate(result)) {
+                attempts++;
+                logger.warn("Polling validation failed");
+                if (attempts >= options.maxRetries) {
+                    logger.error("Max polling retries reached, stopping");
+                    needToStopPolling = true;
+                    cleanup();
+                    return;
+                }
+            } else {
+                cb(result);
+                attempts = 0;
+            }
+
         } catch (error) {
             if (requestId !== currentRequestId || needToStopPolling) {
                 return;
             }
-            
-            attempts++
-            pollingOptions.onError?.(error)
+
+            attempts++;
+            try {
+                options.onError(error);
+            } catch (hookErr) {
+                logger.error("Polling onError hook failed:", hookErr);
+            }
             logger.error("Polling error:", error);
-            
-            if (attempts >= (pollingOptions.maxRetries || 10)) {
+
+            if (attempts >= options.maxRetries) {
                 logger.error("Max polling retries reached, stopping");
+                needToStopPolling = true;
+                cleanup();
                 return;
             }
+
         }
         
         if (needToStopPolling) return;
