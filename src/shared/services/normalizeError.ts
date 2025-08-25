@@ -1,3 +1,5 @@
+import {z} from "zod";
+
 export interface NormalizedError {
     message: string;
     originalError: unknown;
@@ -14,7 +16,7 @@ export function normalizeError(error: unknown): NormalizedError {
         }
     }
 
-    if (error instanceof Error && error.name === 'ZodError') {
+    if (error instanceof z.ZodError) {
         const validationIssues = (error as any).issues;
         const message = validationIssues.map((issue: any) => issue.message).join('. ');
         return {

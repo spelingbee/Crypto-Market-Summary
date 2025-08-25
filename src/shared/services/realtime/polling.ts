@@ -32,7 +32,7 @@ export function poll<T>(
         }
     };
 
-    const poll = async () => {
+    const tick = async () => {
         if (needToStopPolling) return;
         
         const requestId = ++currentRequestId;
@@ -82,10 +82,10 @@ export function poll<T>(
         
         if (needToStopPolling) return;
         
-        timeoutId = setTimeout(poll, pollingOptions.intervalMs);
+        timeoutId = setTimeout(tick, pollingOptions.intervalMs);
     };
 
-    poll();
+    tick();
 
     const stopFunction = () => {
         needToStopPolling = true;
@@ -97,7 +97,7 @@ export function poll<T>(
         stopFunction();
         needToStopPolling = false;
         attempts = 0;
-        poll();
+        tick();
     };
 
     return {

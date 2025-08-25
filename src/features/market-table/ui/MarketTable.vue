@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {ref, computed, type ComputedRef, onBeforeUnmount, watch} from "vue";
+import {ref, computed, type ComputedRef, onBeforeUnmount} from "vue";
 import {type Coin} from "../../../entities/coin/api";
 import MyCoin from "../../../entities/coin/ui/MyCoin.vue";
 import SearchWithIcon from "../../../shared/ui/SearchWithIcon.vue";
@@ -13,11 +13,16 @@ const { hasCoinsError, isCoinsLoading, coinConfigs } = storeToRefs(coinsStore);
 const coinsData = coinsStore.coinsData;
 
 coinsStore.fetchInitialData().then(() => {
-  updateSortOrder();
   coinsStore.startPolling();
 });
 
-const sortedIds = ref<string[]>([]);
+const sortedIds = computed(() => {
+  return Array.from(coinsData.keys()).sort((a, b) => {
+    const aIndex = coinConfigs.value.get(a)?.sortOrder || 0;
+    const bIndex = coinConfigs.value.get(b)?.sortOrder || 0;
+    return aIndex - bIndex;
+  });
+});
 const searchQuery = ref('');
 
 const filteredIds = computed(() => {
@@ -40,19 +45,6 @@ const displayData: ComputedRef<Coin[]> = computed(() => {
 const debouncedSearch = debounce((value: string) => {
   searchQuery.value = value;
 }, 300)
-
-const updateSortOrder = () => {
-  const allIds = Array.from(coinsData.keys());
-  sortedIds.value = allIds.sort((a, b) => {
-    const aIndex = coinConfigs.value.get(a)?.sortOrder || 0;
-    const bIndex = coinConfigs.value.get(b)?.sortOrder || 0;
-    return aIndex - bIndex;
-  });
-}
-watch(() => coinsData, (value) => {
-  console.log(value)
-  updateSortOrder();
-}, {deep: true})
 
 onBeforeUnmount(() => {
   coinsStore.stopPolling();

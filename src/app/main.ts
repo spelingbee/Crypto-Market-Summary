@@ -3,6 +3,7 @@ import '../style.css'
 import App from './App.vue'
 import {globalErrorHandler} from "../shared/services";
 import {logger} from "../shared/services/logger.ts";
+import "../shared/plugins/chart.js"
 import {createPinia} from "pinia";
 const app = createApp(App);
 const pinia = createPinia()

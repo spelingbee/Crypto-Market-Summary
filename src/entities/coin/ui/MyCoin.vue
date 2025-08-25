@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import type {Coin, CoinConfig} from "../api";
 import {computed, onMounted, onUnmounted, ref, watch} from "vue";
-import { Chart, registerables} from 'chart.js';
-Chart.register(...registerables);
+import { Chart } from 'chart.js';
 
 interface CoinProps {
   coinConfig?: CoinConfig
@@ -13,36 +12,49 @@ interface CoinProps {
 const props = withDefaults(defineProps<CoinProps>(), {
   chartLabels: () => ["1","2","3","4","5"]
 })
+const priceHistory = computed(() => [...props.coin.priceHistory])
+
+const toNumbers = (arr: string[]) => arr.map((v) => Number.parseFloat(v)).filter((n) => Number.isFinite(n))
 
 const lastChange = computed(() => {
-  if (+props.coin.price.change.amount === 0) {
-    return '0.00'
-  }
-  if (props.coin.price.change.direction.toLowerCase() === 'up') {
-    return `+ ${props.coin.price.change.amount}`
-  }
-  return `- ${props.coin.price.change.amount}`
+  const amount = Number(props.coin.price.change.amount)
+  if (!Number.isFinite(amount) || amount === 0) return '0.00'
+  const sign = props.coin.price.change.direction.toLowerCase() === 'up' ? '+' : '-'
+  return `${sign} ${amount}`
 })
 
+
 const lastChangeClass = computed(() => {
-  if (+props.coin.price.change.amount === 0) {
-    return ''
-  }
+  const amount = Number(props.coin.price.change.amount)
+  if (!Number.isFinite(amount) || amount === 0) return ''
   return props.coin.price.change.direction.toLowerCase() === 'up' ? 'up' : 'down'
 })
 
 const priceExtremums = computed(() => {
-  const sortedPrices = [...props.coin.priceHistory].sort((a, b) => parseFloat(b) - parseFloat(a))
+  const nums = toNumbers(priceHistory.value)
+  if (nums.length === 0) {
+    return { biggest: '0.00', lowest: '0.00' }
+  }
+  let min = nums[0]
+  let max = nums[0]
+  for (let i = 1; i < nums.length; i++) {
+    const value = nums[i]
+    if (value < min) min = value
+    if (value > max) max = value
+  }
   return {
-    biggest: Number(sortedPrices[0]).toFixed(2),
-    lowest: Number(sortedPrices[sortedPrices.length - 1]).toFixed(2)
+    biggest: max.toFixed(2),
+    lowest: min.toFixed(2)
   }
 })
 
+
 const getChartData = (data: string[], max = 5) => {
-  const last = data.slice(-max)
-  return last.map(price => parseFloat(price))
+  const nums = toNumbers(data)
+  if (nums.length <= max) return nums
+  return nums.slice(-max)
 }
+
 
 const getChartColor = (data: number[]) => {
   if (data.length < 2) {
@@ -54,11 +66,12 @@ const getChartColor = (data: number[]) => {
 
 const canvasEl = ref<HTMLCanvasElement | null>(null)
 const chart = ref<Chart | null>(null)
-const chartData = ref(getChartData(props.coin.priceHistory))
+const chartData = ref(getChartData(priceHistory.value))
 const chartDataColor = ref(getChartColor(chartData.value))
 
+
 watch(
-    () => props.coin.priceHistory,
+    priceHistory,
     (newPrices) => {
       chartData.value = getChartData(newPrices)
       chartDataColor.value = getChartColor(chartData.value)
@@ -144,7 +157,7 @@ onUnmounted(() => {
     <div class="lowest-price">{{priceExtremums.lowest}}</div>
     <div class="volume">{{Number(coin.volume.secondary).toFixed(2)}} <span>({{coin.pair.secondary}})</span></div>
     <div class="chart">
-      <canvas ref="canvasEl" :id="coin.id" width="50px" height="50px"></canvas>
+      <canvas ref="canvasEl" width="50px" height="50px"></canvas>
     </div>
   </div>
 </template>

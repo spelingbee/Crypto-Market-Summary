@@ -29,17 +29,27 @@ export function useLocalErrors() {
         currentError.value = null;
     };
 
+    type Result<T, E> = T | E;
+
     const executeWithErrorHandling = async <T>(
         asyncFn: () => Promise<T>,
         errorMessage?: string
-    ): Promise<T | null> => {
+    ): Promise<Result<T, AppError>> => {
         try {
             isLoading.value = true;
             clearError();
             return await asyncFn();
         } catch (error) {
             setError(error, errorMessage);
-            return null;
+            if (currentError.value) {
+                return currentError.value;
+            }
+            return {
+                type: ErrorType.UNKNOWN,
+                message: 'An unexpected error occurred',
+                originalError: error,
+                timestamp: new Date()
+            }
         } finally {
             isLoading.value = false;
         }

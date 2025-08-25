@@ -7,10 +7,20 @@ export function createMapper<TDto, TDomain>(
     validator: (dto: TDto) => boolean
 ) {
     return (dto: TDto): TDomain => {
-        if (!validator(dto)) {
-            throw new MappingError(`Invalid ${mapperName} DTO: validation failed.`);
-        }
         try {
+            const isValid = () => {
+                try {
+                    return validator(dto);
+                } catch (e) {
+                    logger.error(`Validator threw for ${mapperName}:`, e);
+                    return false;
+                }
+            };
+
+            if (!isValid) {
+                throw new MappingError(`Invalid ${mapperName} DTO: validation failed.`);
+            }
+
             return mappingLogic(dto);
         } catch (e: unknown) {
             logger.error(`Failed to map ${mapperName} DTO:`, e);

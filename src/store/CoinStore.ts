@@ -4,6 +4,7 @@ import { type Coin, type CoinConfig, fetchCoinConfig, fetchCoinMarket } from '..
 import { poll } from '../shared/services/realtime/polling';
 import { useLocalErrors } from '../shared/composables';
 import {logger} from "../shared/services/logger.ts";
+import {isArray} from "chart.js/helpers";
 
 export const useCoinsStore = defineStore('coins', () => {
     const coinsData = reactive<Map<string, Coin>>(new Map());
@@ -22,12 +23,12 @@ export const useCoinsStore = defineStore('coins', () => {
     } = useLocalErrors();
 
     const loadCoinConfigs = async () => {
-        const result = await executeConfigsWithErrorHandling(
-            () => fetchCoinConfig(),
+        const result = await executeConfigsWithErrorHandling<CoinConfig[]>(
+            fetchCoinConfig,
             'Failed to load coin configuration'
         );
 
-        if (result) {
+        if (isArray(result)) {
             coinConfigs.value = new Map(result.map(item => [item.code, item]));
         }
     };
@@ -49,7 +50,7 @@ export const useCoinsStore = defineStore('coins', () => {
             }
             isCoinsLoading.value = true;
 
-            const result = fetchCoinMarket()
+            const result = await fetchCoinMarket()
             return result;
         } finally {
             isCoinsLoading.value = false;
@@ -86,8 +87,8 @@ export const useCoinsStore = defineStore('coins', () => {
     }
 
     const fetchInitialData = async () => {
-        const marketData = await executeCoinsWithErrorHandling(fetchCoinMarket, "Failed to fetch coin data");
-        if (marketData) {
+        const marketData = await executeCoinsWithErrorHandling<Coin[]>(fetchCoinMarket, "Failed to fetch coin data");
+        if (isArray(marketData) && marketData.length > 0) {
             updateCoinData(marketData);
         }
         await loadCoinConfigs()
