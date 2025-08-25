@@ -77,7 +77,7 @@ const tableGrid = "1.5fr 1fr 1fr 1fr 1fr 1fr 1fr"
         <div>Charts</div>
       </div>
       <div class="table-body">
-        <template v-if="isCoinsLoading">
+        <template v-if="isCoinsLoading && !hasCoinsError && displayData.length === 0">
           <div v-for="i in 20" :key="i" class="skeleton table-item">
             <div class="pair">
               <MySkeleton class="my-coin__icon" width="25px" height="25px" border-radius="50%"/>
